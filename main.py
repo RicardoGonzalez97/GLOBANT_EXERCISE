@@ -54,3 +54,36 @@ def saveDf(df:pd.DataFrame,tableName:str):
         except sqlite3.IntegrityError:
              print(df)
              return Messages.duplicated_pk
+        
+@app.get("/restore/{nameTable}")       
+def restoreBackup(nameTable):
+    file_path='avros/'+nameTable+'.avro'
+    avro_records = []
+    if (path.isfile(file_path)):
+        with open(file_path, 'rb') as fo:
+            avro_reader = reader(fo)
+            for record in avro_reader:
+                avro_records.append(record)
+        df=pd.DataFrame(avro_records)
+        conn = sqlite3.connect(database)
+        df.to_sql(nameTable,conn,if_exists='replace',index=False,dtype={'id': 'INTEGER PRIMARY KEY'})
+        conn.close()
+        return Messages.backup_ok
+    else:
+        return Messages.no_backup+nameTable
+    
+@app.get("/backup/{nameTable}")      
+def createBackup(nameTable):
+    conn = sqlite3.connect(database)
+    try:
+        df = pd.read_sql_query("SELECT * from "+nameTable, conn) 
+        if(not df.empty):
+            parsed_schema = parse_schema(AvroSchemas.getSchema(nameTable))
+            records = df.to_dict('records')
+            with open('avros/'+nameTable+'.avro', 'wb') as out:
+                writer(out, parsed_schema, records)
+            return Messages.data_saved
+        else:
+            return Messages.no_data+nameTable
+    except pd.errors.DatabaseError:
+         return Messages.no_data+nameTable
