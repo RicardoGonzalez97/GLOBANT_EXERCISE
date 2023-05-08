@@ -22,6 +22,17 @@ app = FastAPI ()
 def index():
     return {"Hello":"World"}
 
+@app.post("/receiveInformation")
+def receiveInfo(file: UploadFile= File(...)):
+    if (file.filename == "jobs.csv"):
+       return processInformation(pd_schema=ps.schema_jobs,headers=hd.job_headers,tableName="jobs",file=file)
+    elif (file.filename == "departments.csv"):
+        return processInformation(pd_schema=ps.schema_departments,headers=hd.department_headers,tableName="departments",file=file)
+    elif(file.filename == "hired_employees.csv"):
+       return processInformation(pd_schema=ps.schema_hired_employees,headers=hd.hired_employees_headers,tableName="hired_employees",file=file)
+    else:
+        return Messages.name_wrong
+
 def processInformation(pd_schema:any,headers:list[str],tableName:str,file: UploadFile= File(...)):
     new_df=createDf(headers,file)
     errors =  ps.validateSchemas(pd_schema,new_df)
